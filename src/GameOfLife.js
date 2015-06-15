@@ -1,8 +1,8 @@
 var Immutable = require('immutable');
 
-var rule = {BIRTH: 0,
-            DEATH: 1,
-            STASIS: 2};
+var rule = {BIRTH: 'BIRTH',
+            DEATH: 'DEATH',
+            STASIS: 'STASIS'};
 
 var Coord3 = Immutable.Record({a:0, b:0, c:0});
 
@@ -23,6 +23,7 @@ function randomBoard(cells) {
 
 function neighbors(cells, cutoff) {
   return Immutable.OrderedMap(
+    // TODO make more efficient
     cells.map(cell => [cell, neighborCells(cell, cells, cutoff)]));
 }
 

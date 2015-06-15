@@ -1,6 +1,7 @@
 var Immutable = require('immutable');
 var THREE = require('three');
 var OrbitControls = require('three-orbit-controls')(THREE);
+var DAT = require('dat-gui');
 
 var gol = require('./GameOfLife');
 
@@ -10,25 +11,107 @@ var board, neighborsCache;
 
 var rule = gol.rule;
 
-/// Parameter
-var rules = {
-  0: rule.DEATH,
-  1: rule.STASIS,
-  2: rule.BIRTH,
-  3: rule.DEATH,
-  4: rule.DEATH,
-  5: rule.DEATH,
-  6: rule.DEATH,
-  7: rule.DEATH,
-  8: rule.DEATH,
-  9: rule.DEATH,
-  10: rule.DEATH,
-  11: rule.DEATH,
-  12: rule.DEATH
+var randomProperty = function (obj) {
+      var keys = Object.keys(obj)
+          return obj[keys[ keys.length * Math.random() << 0]];
 };
-var speed = 500;
-var subdivisions = 2;
-var neighborsCutoff = 1;
+
+/// Parameter
+var GameControls = function () {
+  this.rules = {
+    0: rule.DEATH,
+    1: rule.DEATH,
+    2: rule.DEATH,
+    3: rule.DEATH,
+    4: rule.BIRTH,
+    5: rule.STASIS,
+    6: rule.STASIS,
+    7: rule.DEATH,
+    8: rule.DEATH,
+    9: rule.DEATH,
+    10: rule.DEATH,
+    11: rule.DEATH,
+    12: rule.DEATH
+  };
+
+  this.randomRules = function () {
+    for (var x in this.rules) {
+      this.rules[x] = randomProperty(rule);
+    }
+  }
+
+  this.colors = {
+    alive: randomColor(),
+    dead: randomColor(),
+    background: randomColor(),
+  }
+
+  this.randomColors = function () {
+    this.colors.alive = randomColor();
+    this.colors.dead = randomColor();
+    this.colors.background = randomColor();
+    renderer.setClearColor(this.colors.background);
+    paint(mesh, board);
+  }
+
+  this.speed = 1000;
+  this.subdivisions = 2;
+  this.neighborsCutoff = 1;
+
+  this.start = start;
+  this.stop = stop;
+  this.step = step;
+
+  this.randomise = function () {
+    this.randomColors();
+    this.randomRules();
+    this.randomBoard();
+  }
+
+  this.randomBoard = random;
+  this.blankBoard = blank;
+
+  this.log = function () {console.log(this);}
+}
+
+var params = new GameControls();
+
+var gui = new DAT.GUI();
+
+gui.add(params, 'log');
+gui.add(params, 'speed', 50, 1000);
+
+var ruleFolder = gui.addFolder('Rules');
+for (var x in params.rules) {
+  ruleFolder.add(params.rules, x, rule).listen();
+}
+ruleFolder.add(params, 'randomRules');
+
+var boardFolder = gui.addFolder('Board');
+boardFolder.add(params, 'blankBoard');
+boardFolder.add(params, 'randomBoard');
+
+var colorFolder = gui.addFolder('Colors');
+colorFolder.addColor(params.colors, 'alive').listen();
+colorFolder.addColor(params.colors, 'dead').listen();
+colorFolder.addColor(params.colors, 'background')
+.onChange((value) => renderer.setClearColor(value))
+.listen();
+colorFolder.add(params, 'randomColors');
+
+var miscFolder = gui.addFolder('Misc');
+miscFolder.add(params, 'subdivisions')
+.onFinishChange((value) => {
+  params.subdivisions = value;
+  initGol();
+});
+miscFolder.add(params, 'neighborsCutoff');
+
+gui.add(params, 'start');
+gui.add(params, 'step');
+gui.add(params, 'stop');
+
+gui.add(params, 'randomise');
 
 // Beginning the loop
 
@@ -36,22 +119,20 @@ init();
 animate();
 
 initGol();
-run();
 
 // Painting the board
 
-var clearColor = Math.random() * 0xffffff;
-var highlightColor = Math.random() * 0xffffff;
-var deadColor = Math.random() * 0xffffff;
-var aliveColor = deadColor * 0.90;
+function randomColor() {
+    return Math.random() * 0xffffff;
+}
 
 function paint(mesh, cells) {
   var geo = mesh.geometry;
   geo.faces.forEach((f) => {
     if (cells.get(gol.Coord3({a:f.a, b:f.b, c:f.c})) > 0) {
-      f.color.setHex(aliveColor);
+      f.color.set(params.colors.alive);
     } else {
-      f.color.setHex(deadColor);
+      f.color.set(params.colors.dead);
     }
   });
   mesh.geometry.colorsNeedUpdate = true;
@@ -60,42 +141,66 @@ function paint(mesh, cells) {
 // Game controls
 
 var req;
+var running;
 
 function run() {
+  req = setTimeout( () => {
+  requestAnimationFrame(run);
   step();
-  req = setTimeout(run, speed);
+  }, params.speed);
+}
+
+function start () {
+  if (!running) {
+    running = true;
+    run();
+  }
 }
 
 function stop() {
   clearTimeout(req);
+  running = false;
 }
 
 function random() {
-  cells = gol.randomBoard(gol.cells(mesh.geometry.faces));
+  board = gol.randomBoard(gol.cells(mesh.geometry.faces));
+  paint(mesh, board);
+}
+
+function blank() {
+  board = gol.blankBoard(gol.cells(mesh.geometry.faces));
+  paint(mesh, board);
 }
 
 function initGol(){
-  var faces = mesh.geometry.faces;
-  if (board === undefined) {
-    board = gol.randomBoard(gol.cells(faces));
+  stop();
+  if (mesh !== undefined) {
+    scene.remove(scene.getObjectByName(mesh.name));
   }
+  mesh = createMesh(params.subdivisions);
+  mesh.name = "mesh"
+  scene.add(mesh);
+
+  var faces = mesh.geometry.faces;
   if (neighborsCache === undefined) {
     neighborsCache = Immutable.Map();
   }
-  var neighborId = Immutable.List([faces.length, neighborsCutoff])
+  var neighborId = Immutable.List([faces.length, params.neighborsCutoff])
   var neighbors = neighborsCache.get(neighborId)
   if (neighbors === undefined) {
-    neighbors = gol.neighbors(gol.cells(faces), neighborsCutoff);
+    neighbors = gol.neighbors(gol.cells(faces), params.neighborsCutoff);
     neighborsCache = neighborsCache.set(neighborId, neighbors);
   }
+  board = gol.randomBoard(gol.cells(faces));
   paint(mesh, board);
+  start();
 }
 
 function step() {
   var neighborId = Immutable.List([mesh.geometry.faces.length,
-                                  neighborsCutoff])
+                                  params.neighborsCutoff])
   var neighbors = neighborsCache.get(neighborId)
-  board = gol.step(board, neighbors, rules);
+  board = gol.step(board, neighbors, params.rules);
   paint(mesh, board);
 }
 
@@ -109,15 +214,17 @@ function init() {
     NEAR = 1,
     FAR = 1000;
   camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
-  camera.position.set(0,0,300);
+  camera.position.set(0,0,180);
   camera.lookAt(scene.position);
   scene.add(camera);
   //RENDERER
   renderer = new THREE.WebGLRenderer({antialias:true});
   renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
   container = document.getElementById('game-of-life');
+  document.body.style.margin = '0';
+  document.body.style.overflow = 'hidden';
   container.appendChild(renderer.domElement);
-  renderer.setClearColor(clearColor);
+  renderer.setClearColor(params.colors.background);
   // CONTROLS
   controls = new OrbitControls(camera, renderer.domElement);
   controls.minDistance = 110;
@@ -128,10 +235,13 @@ function init() {
   var light = new THREE.PointLight(0xffffff);
   light.position.set(10,50,100);
   scene.add(light);
-  // CUSTOM
-  mesh = createMesh(subdivisions);
-  scene.add(mesh);
 }
+
+addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
 function animate() {
   requestAnimationFrame(animate);
@@ -140,9 +250,8 @@ function animate() {
 }
 
 function update(){
-  if (true) {
-  }
-  //controls.update();
+  controls.update();
+  // TODO mesh manip
 }
 
 function render() {
@@ -156,15 +265,15 @@ function createMesh(subdivisions) {
   return new THREE.Mesh(baseGeo, baseMat);
 }
 
-window.step = step;
+window.renderer = renderer;
 window.scene = scene;
 window.mesh = mesh;
 window.paint = paint;
 
-window.initGol = initGol;
 window.stop = stop;
 window.run = run;
 window.random = random;
 
 window.THREE = THREE;
+window.DAT = DAT;
 window.Immutable = Immutable;
