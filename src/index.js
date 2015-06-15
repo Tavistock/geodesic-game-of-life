@@ -74,12 +74,13 @@ var GameControls = function () {
   this.log = function () {console.log(this);}
 }
 
-var params = new GameControls();
+// GUI
 
+var params = new GameControls();
 var gui = new DAT.GUI();
 
-gui.add(params, 'log');
-gui.add(params, 'speed', 50, 1000);
+//gui.add(params, 'log');
+gui.add(params, 'speed', 50, 1000).step(50);
 
 var ruleFolder = gui.addFolder('Rules');
 for (var x in params.rules) {
@@ -92,8 +93,12 @@ boardFolder.add(params, 'blankBoard');
 boardFolder.add(params, 'randomBoard');
 
 var colorFolder = gui.addFolder('Colors');
-colorFolder.addColor(params.colors, 'alive').listen();
-colorFolder.addColor(params.colors, 'dead').listen();
+colorFolder.addColor(params.colors, 'alive')
+.onChange((value) => paint(mesh, board))
+.listen();
+colorFolder.addColor(params.colors, 'dead')
+.onChange((value) => paint(mesh, board))
+.listen();
 colorFolder.addColor(params.colors, 'background')
 .onChange((value) => renderer.setClearColor(value))
 .listen();
@@ -119,6 +124,28 @@ init();
 animate();
 
 initGol();
+
+// loading
+
+
+function onReady(callback) {
+  var intervalID = window.setInterval(checkReady, 1000);
+  function checkReady() {
+    if (neighborsCache.count() > 0) {
+      window.clearInterval(intervalID);
+      callback.call(this);
+    }
+  }
+}
+
+function show(id, value) {
+  document.getElementById(id).style.display = value ? 'block' : 'none';
+}
+
+onReady(function () {
+  show('game-of-life', true);
+  show('loading', false);
+});
 
 // Painting the board
 
@@ -265,10 +292,52 @@ function createMesh(subdivisions) {
   return new THREE.Mesh(baseGeo, baseMat);
 }
 
+// interaction
+var mouse = new THREE.Vector2();
+
+function mouseLocation(event){
+  // calculate mouse position in normalized device coordinates
+  // (-1, +1)
+  mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+  mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+}
+
+function mouseUp (event) {
+  var down = mouse.clone();
+  mouseLocation(event);
+  var xTravel = Math.abs(down.x - mouse.x);
+  var yTravel = Math.abs(down.y - mouse.y);
+  var travel = ((xTravel + yTravel) * 100);
+  if (travel< 5) {
+    handlePick(event);
+  }
+}
+
+function handlePick(event){
+  var raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+  var intersects = raycaster.intersectObjects(scene.children);
+  if (0 < intersects.length) {
+    var inverter  = (val) => {
+      if (val == 1) {
+        return 0;
+      } else {
+        return 1;
+      }
+    };
+    var f = intersects[0].face
+    board = board.update(gol.Coord3({a:f.a, b:f.b, c:f.c}), inverter);
+    paint(mesh, board);
+  }
+}
+
+addEventListener('mousedown', mouseLocation);
+addEventListener('mouseup', mouseUp);
+
 window.renderer = renderer;
 window.scene = scene;
 window.mesh = mesh;
-window.paint = paint;
+window.board = board;
 
 window.stop = stop;
 window.run = run;

@@ -1,0 +1,42 @@
+{
+  "name": "geodesic-game-of-life",
+  "version": "1.0.0",
+  "description": "Game of Life on a geodesic using THREE.js",
+  "main": "gulpfile.js",
+  "dependencies": {
+    "babelify": "^6.1.2",
+    "browserify": "^10.2.4",
+    "dat-gui": "^0.5.0",
+    "gulp": "^3.9.0",
+    "gulp-babel": "^5.1.0",
+    "gulp-sourcemaps": "^1.5.2",
+    "gulp-uglify": "^1.2.0",
+    "immutable": "^3.7.3",
+    "three": "^0.71.0",
+    "three-orbit-controls": "^69.0.4",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0",
+    "watchify": "^3.2.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tavistock/geodesic-game-of-life.git"
+  },
+  "keywords": [
+    "game-of-life",
+    "3d",
+    "cellular",
+    "automata",
+    "THREE.js"
+  ],
+  "author": "Travis McNeill <tavistock91@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Tavistock/geodesic-game-of-life/issues"
+  },
+  "homepage": "https://github.com/Tavistock/geodesic-game-of-life#readme"
+}
