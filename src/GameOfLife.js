@@ -22,22 +22,27 @@ function randomBoard(cells) {
 }
 
 function neighbors(cells, cutoff) {
-  return Immutable.OrderedMap(
-    // TODO make more efficient
-    cells.map(cell => [cell, neighborCells(cell, cells, cutoff)]));
+  return cells
+  .map(cell => neighborCells(cell, cells, cutoff))
+  .reduce((left, right) => left.concat(right))
+  .reduce((left, right) => left.mergeWith((x, y) => x.concat(y), right));
+
 }
 
 function neighborCells(cell, allCells, cutoff){
   // 1 shared is for inderect neighbors
   // 2 shared is for direct neighbors
-  return allCells.map(neighborCell => {
+  return allCells
+  .skipWhile(x => x !== (cell))
+  .map(neighborCell => {
     var commonCoords = neighborCell
     .valueSeq()
     .filter(value => cell.contains(value))
     .count();
     if (commonCoords >= cutoff &&
         commonCoords < 3) {
-      return neighborCell;
+      return Immutable.Map([[cell, Immutable.List([neighborCell])],
+                            [neighborCell, Immutable.List([cell])]])
     } else {
       return false;
     }})
